@@ -57,7 +57,7 @@ jobs:
               ;;
           esac
 
-          DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${RELEASE_ARCH}.tgz"
+          DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_${RELEASE_ARCH}.tgz"
           echo "Downloading from: ${DOWNLOAD_URL}"
 
           # Download and extract
