@@ -172,40 +172,15 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           tag: v${{ steps.version.outputs.version }}
-          name: CoreDNS Debian Package v${{ steps.version.outputs.version }}
+          name: CoreDNS v${{ steps.version.outputs.version }}
           body: |
-            # CoreDNS Debian Package v${{ steps.version.outputs.version }}
+            CoreDNS v${{ steps.coredns.outputs.version }} with Debian Package v${{ steps.version.outputs.version }}
 
-            This release includes CoreDNS v${{ steps.coredns.outputs.version }} with complete Debian packaging.
-
-            ## Features
-            - ✅ Intelligent upgrade handling (respects running state)
-            - ✅ systemd-resolved integration management
-            - ✅ CLI tools: coredns-ctl, coredns-zone, coredns-validate, coredns-resolve
-            - ✅ Shell completion and man pages
-            - ✅ AppArmor security profile
-            - ✅ Automatic systemd service management
-
-            ## Installation
+            ## Quick Start
             ```bash
-            # Download for your architecture (amd64, arm64, or armv7l)
             sudo apt install ./coredns_${{ steps.version.outputs.version }}_amd64.deb
-
-            # Configure systemd-resolved conflict
             sudo coredns-resolve disable
-
-            # Start service
             sudo systemctl start coredns
-            sudo systemctl enable coredns
-            ```
-
-            ## Quick Commands
-            ```bash
-            coredns-ctl status          # Check service status
-            sudo coredns-ctl restart    # Restart service
-            coredns-ctl logs            # View logs
-            coredns-resolve status      # Check port 53 status
-            sudo coredns-resolve disable # Free port 53 for CoreDNS
             ```
 
             ## Architectures
@@ -213,12 +188,7 @@ jobs:
             - arm64 (ARMv8)
             - armv7l (ARMv7 32-bit)
 
-            ## Checksums
-            ```
-            ${{ hashFiles('release/SHA256SUMS') }}
-            ```
-
-            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for detailed documentation.
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for complete documentation.
           artifacts: release/coredns_*.deb,release/SHA256SUMS
           draft: false
           prerelease: false
