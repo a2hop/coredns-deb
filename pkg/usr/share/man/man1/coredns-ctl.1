@@ -1,0 +1,90 @@
+.TH coredns-ctl 1 "Oct 2024" "coredns-ctl 1.0" "User Commands"
+.SH NAME
+coredns-ctl \- Control and manage CoreDNS service
+.SH SYNOPSIS
+.B coredns-ctl
+[\fICOMMAND\fR]
+.SH DESCRIPTION
+.B coredns-ctl
+is a utility for managing the CoreDNS service on Debian systems.
+It provides convenient shortcuts for common operations like starting,
+stopping, reloading, and monitoring CoreDNS.
+.SH COMMANDS
+.TP
+.B start
+Start the CoreDNS service.
+.TP
+.B stop
+Stop the CoreDNS service.
+.TP
+.B restart
+Restart the CoreDNS service.
+.TP
+.B reload
+Reload CoreDNS configuration (sends SIGUSR1).
+.TP
+.B status
+Show the current service status.
+.TP
+.B logs
+Show the last 50 log entries.
+.TP
+.B follow
+Follow logs in real-time.
+.TP
+.B version
+Show the CoreDNS version.
+.TP
+.B config
+Show the Corefile location and contents.
+.TP
+.B validate
+Validate the Corefile syntax.
+.TP
+.B help
+Show help information.
+.SH EXAMPLES
+Start the CoreDNS service:
+.PP
+.nf
+  sudo coredns-ctl start
+.fi
+.PP
+Show the running configuration:
+.PP
+.nf
+  coredns-ctl config
+.fi
+.PP
+Reload the configuration after making changes:
+.PP
+.nf
+  sudo coredns-ctl reload
+.fi
+.PP
+Follow logs in real-time:
+.PP
+.nf
+  sudo coredns-ctl follow
+.fi
+.SH SEE ALSO
+.BR coredns (1),
+.BR coredns-zone (1),
+.BR coredns-validate (1),
+.BR systemctl (1),
+.BR journalctl (1)
+.SH FILES
+.I /etc/coredns/Corefile
+.RS
+CoreDNS configuration file.
+.RE
+.I /etc/systemd/system/coredns.service
+.RS
+CoreDNS systemd service file.
+.RE
+.SH AUTHOR
+CoreDNS Debian Package Maintainers
+.SH REPORTING BUGS
+Report bugs at: https://github.com/coredns/coredns/issues
+.SH LICENSE
+Apache License 2.0

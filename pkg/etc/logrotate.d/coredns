@@ -1,0 +1,19 @@
+# CoreDNS logrotate configuration
+# This file is optional as CoreDNS logs go to systemd journal
+
+# If using file-based logging, uncomment and configure:
+# /var/log/coredns/*.log {
+#     daily
+#     rotate 7
+#     compress
+#     delaycompress
+#     notifempty
+#     create 0640 coredns coredns
+#     sharedscripts
+#     postrotate
+#         systemctl reload coredns > /dev/null 2>&1 || true
+#     endscript
+# }
+
+# For journalctl-based logging (default), use:
+# sudo journalctl --vacuum=time=7d

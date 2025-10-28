@@ -1,0 +1,29 @@
+#!/bin/bash
+set -e
+
+# This script runs after the package is removed
+
+if [ "$1" = "remove" ]; then
+    echo "Cleaning up CoreDNS..."
+    systemctl daemon-reload || true
+    echo "✓ Systemd daemon reloaded"
+fi
+
+if [ "$1" = "purge" ]; then
+    echo "Purging CoreDNS configuration..."
+    
+    # Remove configuration directory
+    if [ -d /etc/coredns ]; then
+        rm -rf /etc/coredns || true
+        echo "✓ Configuration directory removed"
+    fi
+    
+    # Remove coredns user
+    if id coredns &>/dev/null 2>&1; then
+        userdel coredns || true
+        echo "✓ CoreDNS system user removed"
+    fi
+fi
+
+#DEBHELPER#
+exit 0

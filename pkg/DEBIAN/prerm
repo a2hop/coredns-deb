@@ -1,0 +1,23 @@
+#!/bin/bash
+set -e
+
+# This script runs before the package is removed
+
+if [ "$1" = "remove" ]; then
+    echo "Stopping CoreDNS service..."
+    
+    # Stop the service if it's running
+    if systemctl is-active --quiet coredns 2>/dev/null; then
+        systemctl stop coredns || true
+        echo "✓ CoreDNS service stopped"
+    fi
+    
+    # Disable the service
+    if systemctl is-enabled coredns 2>/dev/null; then
+        systemctl disable coredns || true
+        echo "✓ CoreDNS service disabled"
+    fi
+fi
+
+#DEBHELPER#
+exit 0

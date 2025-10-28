@@ -1,0 +1,12 @@
+Package: ut--coredns
+Version: 1.0.0
+Architecture: amd64
+Maintainer: CoreDNS Package Maintainer <maintainer@example.com>
+Homepage: https://coredns.io
+Depends: systemd
+Suggests: curl, jq
+Description: DNS server with a focus on service discovery
+ CoreDNS is a DNS server that chains plugins. Each plugin performs a DNS
+ function. CoreDNS can be used in many different environments because of its
+ flexibility. It can serve as a zone file DNS server, an SRV record resolver,
+ a reverse proxy to upstream DNS servers, and more.
