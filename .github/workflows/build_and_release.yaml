@@ -11,7 +11,36 @@ on:
   workflow_dispatch:
 
 jobs:
+  check_release:
+    runs-on: ubuntu-latest
+    outputs:
+      release_exists: ${{ steps.check.outputs.exists }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: |
+          DEB_VERSION=$(cat deb_version)
+          echo "version=${DEB_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Check if release exists
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view v${{ steps.version.outputs.version }} &>/dev/null; then
+            echo "Release v${{ steps.version.outputs.version }} already exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "Release v${{ steps.version.outputs.version }} does not exist"
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
   build:
+    needs: check_release
+    if: needs.check_release.outputs.release_exists == 'false'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -134,6 +163,7 @@ jobs:
 
   release:
     needs: build
+    if: needs.build.result == 'success'
     runs-on: ubuntu-latest
     permissions:
       contents: write
