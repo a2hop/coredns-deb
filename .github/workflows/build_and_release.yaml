@@ -1,0 +1,226 @@
+name: Build and Release CoreDNS Debian Package
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deb_version'
+      - 'pkg/**'
+      - '.github/workflows/build_and_release.yaml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, arm64, armv7l]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: |
+          DEB_VERSION=$(cat deb_version)
+          echo "version=${DEB_VERSION}" >> $GITHUB_OUTPUT
+          echo "Package version: ${DEB_VERSION}"
+
+      - name: Detect latest CoreDNS version
+        id: coredns
+        run: |
+          # Get latest CoreDNS release version
+          COREDNS_VERSION=$(curl -s https://api.github.com/repos/coredns/coredns/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+          echo "version=${COREDNS_VERSION}" >> $GITHUB_OUTPUT
+          echo "CoreDNS version: ${COREDNS_VERSION}"
+
+      - name: Download CoreDNS binary
+        env:
+          COREDNS_VERSION: ${{ steps.coredns.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          # Map GitHub architecture names to CoreDNS release names
+          case "$ARCH" in
+            amd64)
+              RELEASE_ARCH="linux_amd64"
+              ;;
+            arm64)
+              RELEASE_ARCH="linux_arm64"
+              ;;
+            armv7l)
+              RELEASE_ARCH="linux_arm"
+              ;;
+            *)
+              echo "Unknown architecture: $ARCH"
+              exit 1
+              ;;
+          esac
+
+          DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${RELEASE_ARCH}.tgz"
+          echo "Downloading from: ${DOWNLOAD_URL}"
+
+          # Download and extract
+          wget -q "${DOWNLOAD_URL}" -O coredns.tgz
+          tar xzf coredns.tgz
+          rm coredns.tgz
+
+          # Verify binary exists
+          if [ ! -f coredns ]; then
+            echo "Failed to download CoreDNS binary"
+            exit 1
+          fi
+
+          # Make binary executable and move to package
+          chmod +x coredns
+          cp coredns pkg/usr/local/bin/coredns
+          echo "CoreDNS binary installed successfully"
+
+      - name: Set script permissions
+        run: |
+          chmod 755 pkg/usr/local/bin/coredns-ctl
+          chmod 755 pkg/usr/local/bin/coredns-zone
+          chmod 755 pkg/usr/local/bin/coredns-validate
+          chmod 755 pkg/usr/local/bin/coredns-resolve
+          echo "Script permissions set"
+
+      - name: Create Debian package
+        env:
+          DEB_VERSION: ${{ steps.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          # Set architecture in control file
+          sed -i "s/Architecture: .*/Architecture: ${ARCH}/" pkg/DEBIAN/control
+
+          # Create the .deb package
+          dpkg-deb --build pkg coredns_${DEB_VERSION}_${ARCH}.deb
+
+          # Verify package
+          if [ ! -f "coredns_${DEB_VERSION}_${ARCH}.deb" ]; then
+            echo "Failed to create Debian package"
+            exit 1
+          fi
+
+          # Show package info
+          echo "Package created successfully"
+          ls -lh coredns_${DEB_VERSION}_${ARCH}.deb
+          dpkg -I coredns_${DEB_VERSION}_${ARCH}.deb
+
+      - name: Test package contents
+        env:
+          DEB_VERSION: ${{ steps.version.outputs.version }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          echo "=== Package Contents ==="
+          dpkg -c coredns_${DEB_VERSION}_${ARCH}.deb | head -30
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: coredns-${{ matrix.arch }}
+          path: coredns_*.deb
+          retention-days: 7
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Read package version
+        id: version
+        run: |
+          DEB_VERSION=$(cat deb_version)
+          echo "version=${DEB_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Detect latest CoreDNS version
+        id: coredns
+        run: |
+          COREDNS_VERSION=$(curl -s https://api.github.com/repos/coredns/coredns/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+          echo "version=${COREDNS_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+
+      - name: Organize artifacts
+        run: |
+          mkdir -p release
+          find artifacts -name "coredns_*.deb" -exec cp {} release/ \;
+          cd release
+          ls -lh
+          echo "=== Artifacts Ready for Release ==="
+          sha256sum coredns_*.deb > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          tag: v${{ steps.version.outputs.version }}
+          name: CoreDNS Debian Package v${{ steps.version.outputs.version }}
+          body: |
+            # CoreDNS Debian Package v${{ steps.version.outputs.version }}
+
+            This release includes CoreDNS v${{ steps.coredns.outputs.version }} with complete Debian packaging.
+
+            ## Features
+            - ✅ Intelligent upgrade handling (respects running state)
+            - ✅ systemd-resolved integration management
+            - ✅ CLI tools: coredns-ctl, coredns-zone, coredns-validate, coredns-resolve
+            - ✅ Shell completion and man pages
+            - ✅ AppArmor security profile
+            - ✅ Automatic systemd service management
+
+            ## Installation
+            ```bash
+            # Download for your architecture (amd64, arm64, or armv7l)
+            sudo apt install ./coredns_${{ steps.version.outputs.version }}_amd64.deb
+
+            # Configure systemd-resolved conflict
+            sudo coredns-resolve disable
+
+            # Start service
+            sudo systemctl start coredns
+            sudo systemctl enable coredns
+            ```
+
+            ## Quick Commands
+            ```bash
+            coredns-ctl status          # Check service status
+            sudo coredns-ctl restart    # Restart service
+            coredns-ctl logs            # View logs
+            coredns-resolve status      # Check port 53 status
+            sudo coredns-resolve disable # Free port 53 for CoreDNS
+            ```
+
+            ## Architectures
+            - amd64 (x86-64)
+            - arm64 (ARMv8)
+            - armv7l (ARMv7 32-bit)
+
+            ## Checksums
+            ```
+            ${{ hashFiles('release/SHA256SUMS') }}
+            ```
+
+            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for detailed documentation.
+          artifacts: release/coredns_*.deb,release/SHA256SUMS
+          draft: false
+          prerelease: false
+
+      - name: Release Summary
+        run: |
+          echo "✅ Release created successfully!"
+          echo ""
+          echo "Package Version: ${{ steps.version.outputs.version }}"
+          echo "CoreDNS Version: ${{ steps.coredns.outputs.version }}"
+          echo ""
+          echo "Artifacts:"
+          ls -lh release/coredns_*.deb
+          echo ""
+          echo "Checksums:"
+          cat release/SHA256SUMS
