@@ -89,9 +89,8 @@ jobs:
           chmod 755 pkg/usr/local/bin/coredns-validate
           chmod 755 pkg/usr/local/bin/coredns-resolve
           
-          # Set permissions for other files
+          # Set permissions for control file
           chmod 644 pkg/DEBIAN/control
-          chmod 644 pkg/DEBIAN/conffiles
           
           echo "All permissions set correctly"
           ls -la pkg/DEBIAN/
