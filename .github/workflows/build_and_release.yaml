@@ -115,7 +115,7 @@ jobs:
           dpkg -c coredns_${DEB_VERSION}_${ARCH}.deb | head -30
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coredns-${{ matrix.arch }}
           path: coredns_*.deb
@@ -143,7 +143,7 @@ jobs:
           echo "version=${COREDNS_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           path: artifacts
 
