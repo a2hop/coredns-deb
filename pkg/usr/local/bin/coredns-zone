@@ -10,7 +10,7 @@
 
 set -e
 
-ZONES_DIR="/etc/coredns"
+ZONES_DIR="/etc/coredns/zone"
 
 show_help() {
     grep "^# " "$0" | grep -v "^#!" | sed 's/^# *//'
@@ -24,7 +24,14 @@ init_zone() {
         exit 1
     fi
     
-    local zone_file="${ZONES_DIR}/${zone_name}.zone"
+    # Create zones directory if it doesn't exist
+    if [ ! -d "$ZONES_DIR" ]; then
+        sudo mkdir -p "$ZONES_DIR"
+        sudo chown coredns:coredns "$ZONES_DIR"
+        sudo chmod 755 "$ZONES_DIR"
+    fi
+    
+    local zone_file="${ZONES_DIR}/${zone_name}"
     
     if [ -f "$zone_file" ]; then
         echo "Error: Zone file already exists: $zone_file"
@@ -69,7 +76,7 @@ bump_serial() {
         exit 1
     fi
     
-    local zone_file="${ZONES_DIR}/${zone_name}.zone"
+    local zone_file="${ZONES_DIR}/${zone_name}"
     
     if [ ! -f "$zone_file" ]; then
         echo "Error: Zone file not found: $zone_file"
@@ -101,7 +108,7 @@ list_zones() {
     fi
     
     echo "Zone files in $ZONES_DIR:"
-    ls -lh "${ZONES_DIR}"/*.zone 2>/dev/null || echo "  No zone files found"
+    ls -lh "$ZONES_DIR" 2>/dev/null | tail -n +2 || echo "  No zone files found"
 }
 
 show_zone() {
@@ -112,7 +119,7 @@ show_zone() {
         exit 1
     fi
     
-    local zone_file="${ZONES_DIR}/${zone_name}.zone"
+    local zone_file="${ZONES_DIR}/${zone_name}"
     
     if [ ! -f "$zone_file" ]; then
         echo "Error: Zone file not found: $zone_file"

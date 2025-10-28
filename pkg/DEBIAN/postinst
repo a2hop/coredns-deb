@@ -41,8 +41,11 @@ fi
 
 # Create and configure coredns directory
 mkdir -p /etc/coredns
+mkdir -p /etc/coredns/zone
 chown coredns:coredns /etc/coredns
+chown coredns:coredns /etc/coredns/zone
 chmod 755 /etc/coredns
+chmod 755 /etc/coredns/zone
 echo "✓ Configuration directory ready"
 
 # Create default Corefile if it doesn't exist

@@ -82,10 +82,10 @@ coredns-ctl resolve status     # Resolve subcommand
 
 ### coredns-zone - Zone Management
 ```bash
-coredns-zone init example.com          # Create new zone
+coredns-zone init example.com          # Create new zone in /etc/coredns/zone/example.com
 coredns-zone bump example.com          # Increment serial number
-coredns-zone list                      # List zones
-coredns-zone show example.com          # Show zone file
+coredns-zone list                      # List all zones
+coredns-zone show example.com          # Display zone file
 ```
 
 ### coredns-validate - Configuration Validator
@@ -151,10 +151,10 @@ sudo coredns-ctl reload
 # Create example zone
 sudo coredns-zone init example.com
 
-# Zone file created at: /etc/coredns/example.com.zone
+# Zone file created at: /etc/coredns/zone/example.com
 # Reference in Corefile:
 # example.com {
-#     file /etc/coredns/example.com.zone
+#     file /etc/coredns/zone/example.com
 # }
 ```
 
@@ -224,7 +224,9 @@ coredns-ctl follow     # Real-time follow
 /etc/coredns/
   Corefile             # Main configuration
   *.example            # Example configurations
-  *.zone               # Zone files
+  zone/                # Zone files directory
+    example.com        # Individual zone files (no .zone extension)
+    internal.local     # More zones...
 
 /etc/systemd/system/
   coredns.service      # Systemd service file
@@ -379,8 +381,16 @@ sudo cp /etc/coredns/proxy_zone.example /etc/coredns/Corefile
 # Create zone
 sudo coredns-zone init internal.company.com
 
-# Edit zone file
-sudo nano /etc/coredns/internal.company.com.zone
+# Edit zone file (at /etc/coredns/zone/internal.company.com)
+sudo nano /etc/coredns/zone/internal.company.com
+
+# Update Corefile to reference the zone
+# internal.company.com {
+#     file /etc/coredns/zone/internal.company.com
+# }
+# . {
+#     forward . 8.8.8.8 8.8.4.4
+# }
 
 # Restart service
 sudo coredns-ctl restart
