@@ -39,7 +39,7 @@
     forward . 8.8.8.8 8.8.4.4
 
     # Enable caching for performance
-    cache 300
+    cache 120
 
     # Show errors
     errors

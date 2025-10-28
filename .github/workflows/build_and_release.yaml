@@ -213,20 +213,6 @@ jobs:
           name: CoreDNS v${{ steps.version.outputs.version }}
           body: |
             CoreDNS v${{ steps.coredns.outputs.version }} with Debian Package v${{ steps.version.outputs.version }}
-
-            ## Quick Start
-            ```bash
-            sudo apt install ./coredns_${{ steps.version.outputs.version }}_amd64.deb
-            sudo coredns-resolve disable
-            sudo systemctl start coredns
-            ```
-
-            ## Architectures
-            - amd64 (x86-64)
-            - arm64 (ARMv8)
-            - armv7l (ARMv7 32-bit)
-
-            See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for complete documentation.
           artifacts: release/coredns_*.deb,release/SHA256SUMS
           draft: false
           prerelease: false

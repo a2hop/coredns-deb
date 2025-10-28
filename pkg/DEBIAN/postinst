@@ -48,12 +48,14 @@ chmod 755 /etc/coredns
 chmod 755 /etc/coredns/zone
 echo "✓ Configuration directory ready"
 
-# Create default Corefile if it doesn't exist
-if [ ! -f /etc/coredns/Corefile ]; then
+# Create default Corefile ONLY on fresh install (not on upgrade)
+# $IS_UPGRADE will be true if this is an upgrade
+if [ "$IS_UPGRADE" = false ] && [ ! -f /etc/coredns/Corefile ]; then
     cat > /etc/coredns/Corefile << 'EOF'
 # Default CoreDNS configuration
 # For DNS proxy setup, see /etc/coredns/proxy_only.example
 # For local zone setup, see /etc/coredns/proxy_zone.example
+# For local zone with fallback, see /etc/coredns/proxy_zone_with_fallback.example
 # For conditional forwarding, see /etc/coredns/proxy_zone_conditional.example
 
 # Simple proxy configuration (uncomment to use)
