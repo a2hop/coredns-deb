@@ -56,6 +56,14 @@ jobs:
           echo "version=${DEB_VERSION}" >> $GITHUB_OUTPUT
           echo "Package version: ${DEB_VERSION}"
 
+      - name: Update control file version
+        env:
+          DEB_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          sed -i "s/^Version: .*/Version: ${DEB_VERSION}/" pkg/DEBIAN/control
+          echo "Control file version updated to: ${DEB_VERSION}"
+          grep "^Version:" pkg/DEBIAN/control
+
       - name: Detect latest CoreDNS version
         id: coredns
         run: |
