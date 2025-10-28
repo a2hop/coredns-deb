@@ -78,11 +78,23 @@ jobs:
 
       - name: Set script permissions
         run: |
+          # Set permissions for maintainer scripts (DEBIAN control files)
+          chmod 755 pkg/DEBIAN/postinst
+          chmod 755 pkg/DEBIAN/prerm
+          chmod 755 pkg/DEBIAN/postrm
+          
+          # Set permissions for CLI utilities
           chmod 755 pkg/usr/local/bin/coredns-ctl
           chmod 755 pkg/usr/local/bin/coredns-zone
           chmod 755 pkg/usr/local/bin/coredns-validate
           chmod 755 pkg/usr/local/bin/coredns-resolve
-          echo "Script permissions set"
+          
+          # Set permissions for other files
+          chmod 644 pkg/DEBIAN/control
+          chmod 644 pkg/DEBIAN/conffiles
+          
+          echo "All permissions set correctly"
+          ls -la pkg/DEBIAN/
 
       - name: Create Debian package
         env:
