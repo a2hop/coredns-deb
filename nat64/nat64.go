@@ -63,9 +63,10 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			}
 		}
 
-		// Copy Extra section, but filter out DNSSEC records
+		// Copy Extra section, but filter out DNSSEC records and AAAA records
+		// AAAA records in Additional section should not be included in NAT64 responses
 		for _, extra := range aResp.Extra {
-			if !isDNSSECRecord(extra) {
+			if !isDNSSECRecord(extra) && extra.Header().Rrtype != dns.TypeAAAA {
 				m.Extra = append(m.Extra, extra)
 			}
 		}
