@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""
+CoreDNS Configuration Validator
+Validates CoreDNS Corefile syntax and configuration
+"""
+
+import sys
+import os
+import re
+import subprocess
+
+def validate_corefile(filepath):
+    """Validate Corefile syntax"""
+    errors = []
+    
+    if not os.path.exists(filepath):
+        return ["Error: File not found: {}".format(filepath)]
+    
+    try:
+        with open(filepath, 'r') as f:
+            content = f.read()
+    except Exception as e:
+        return ["Error reading file: {}".format(str(e))]
+    
+    # Check for common syntax errors
+    lines = content.split('\n')
+    brace_count = 0
+    in_block = False
+    
+    for line_num, line in enumerate(lines, 1):
+        stripped = line.strip()
+        
+        # Skip comments and empty lines
+        if not stripped or stripped.startswith('#'):
+            continue
+        
+        # Count braces
+        brace_count += line.count('{') - line.count('}')
+        
+        # Check for balanced braces
+        if brace_count < 0:
+            errors.append("Line {}: Unmatched closing brace '}}".format(line_num))
+            brace_count = 0
+        
+        # Warn about common mistakes
+        if 'forward' in stripped and ':53' in stripped:
+            errors.append("Line {}: Warning: explicit port in forward directive (usually not needed)".format(line_num))
+    
+    if brace_count > 0:
+        errors.append("Error: Unmatched opening braces (expected {} '}}')".format(brace_count))
+    elif brace_count < 0:
+        errors.append("Error: Unmatched closing braces")
+    
+    return errors
+
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: coredns-validate [<corefile>]")
+        print("  If no file specified, checks /etc/coredns/Corefile")
+        sys.exit(1)
+    
+    corefile = sys.argv[1] if len(sys.argv) > 1 else '/etc/coredns/Corefile'
+    
+    errors = validate_corefile(corefile)
+    
+    if errors:
+        print("Corefile validation errors/warnings:")
+        for error in errors:
+            print("  " + error)
+        sys.exit(1)
+    else:
+        print("✓ Corefile syntax is valid")
+        sys.exit(0)
+
+if __name__ == '__main__':
+    main()

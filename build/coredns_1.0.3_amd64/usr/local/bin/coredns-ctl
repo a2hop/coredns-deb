@@ -1,0 +1,170 @@
+#!/bin/bash
+# coredns-ctl - Control and manage CoreDNS service
+#
+# Usage:
+#   coredns-ctl start         - Start CoreDNS service
+#   coredns-ctl stop          - Stop CoreDNS service
+#   coredns-ctl restart       - Restart CoreDNS service
+#   coredns-ctl reload        - Reload configuration (SIGUSR1)
+#   coredns-ctl status        - Show service status
+#   coredns-ctl logs          - Show recent logs
+#   coredns-ctl follow        - Follow logs in real-time
+#   coredns-ctl version       - Show CoreDNS version
+#   coredns-ctl config        - Show Corefile location and contents
+#   coredns-ctl validate      - Validate Corefile syntax
+#   coredns-ctl resolve       - Manage systemd-resolved integration
+#   coredns-ctl help          - Show this help
+
+set -e
+
+COREFILE="/etc/coredns/Corefile"
+COREDNS_BIN="/usr/local/bin/coredns"
+
+show_help() {
+    grep "^# " "$0" | grep -v "^#!" | sed 's/^# *//'
+}
+
+require_root() {
+    if [ "$EUID" -ne 0 ]; then
+        echo "Error: This command requires root privileges"
+        exit 1
+    fi
+}
+
+# Service control functions
+start_service() {
+    require_root
+    echo "Starting CoreDNS..."
+    systemctl start coredns
+    sleep 1
+    systemctl status coredns --no-pager || true
+}
+
+stop_service() {
+    require_root
+    echo "Stopping CoreDNS..."
+    systemctl stop coredns
+    echo "✓ CoreDNS stopped"
+}
+
+restart_service() {
+    require_root
+    echo "Restarting CoreDNS..."
+    systemctl restart coredns
+    sleep 1
+    systemctl status coredns --no-pager || true
+}
+
+reload_config() {
+    require_root
+    echo "Reloading CoreDNS configuration..."
+    systemctl reload coredns
+    echo "✓ Configuration reloaded"
+}
+
+show_status() {
+    systemctl status coredns --no-pager || true
+}
+
+show_logs() {
+    journalctl -u coredns -n 50 --no-pager
+}
+
+follow_logs() {
+    journalctl -u coredns -f
+}
+
+show_version() {
+    if [ -x "$COREDNS_BIN" ]; then
+        "$COREDNS_BIN" -version
+    else
+        echo "CoreDNS binary not found at $COREDNS_BIN"
+        exit 1
+    fi
+}
+
+show_config() {
+    echo "Corefile location: $COREFILE"
+    echo ""
+    if [ -f "$COREFILE" ]; then
+        echo "=== Corefile Contents ==="
+        cat "$COREFILE"
+    else
+        echo "Error: Corefile not found"
+        exit 1
+    fi
+}
+
+validate_config() {
+    echo "Validating Corefile..."
+    if command -v coredns-validate &>/dev/null; then
+        coredns-validate "$COREFILE"
+    else
+        echo "coredns-validate not found, performing basic checks..."
+        
+        # Check for unmatched braces
+        open_braces=$(grep -o '{' "$COREFILE" 2>/dev/null | wc -l)
+        close_braces=$(grep -o '}' "$COREFILE" 2>/dev/null | wc -l)
+        
+        if [ "$open_braces" -eq "$close_braces" ]; then
+            echo "✓ Basic syntax check passed"
+        else
+            echo "Error: Unmatched braces (open: $open_braces, close: $close_braces)"
+            exit 1
+        fi
+    fi
+}
+
+manage_resolve() {
+    if command -v coredns-resolve &>/dev/null; then
+        coredns-resolve "$@"
+    else
+        echo "coredns-resolve utility not found"
+        exit 1
+    fi
+}
+
+# Main script
+case "${1:-help}" in
+    start)
+        start_service
+        ;;
+    stop)
+        stop_service
+        ;;
+    restart)
+        restart_service
+        ;;
+    reload)
+        reload_config
+        ;;
+    status)
+        show_status
+        ;;
+    logs)
+        show_logs
+        ;;
+    follow)
+        follow_logs
+        ;;
+    version)
+        show_version
+        ;;
+    config)
+        show_config
+        ;;
+    validate)
+        validate_config
+        ;;
+    resolve)
+        manage_resolve "${@:2}"
+        ;;
+    help|--help|-h)
+        show_help
+        ;;
+    *)
+        echo "Unknown command: $1"
+        show_help
+        exit 1
+        ;;
+esac

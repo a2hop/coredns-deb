@@ -29,6 +29,7 @@ dig @127.0.0.1
 
 - ✅ **Intelligent Upgrades**: Only restarts if service was running before upgrade
 - ✅ **systemd-resolved Integration**: One-command to resolve port 53 conflicts
+- ✅ **NAT64 Plugin**: Custom plugin for DNS64/NAT64 IPv6 synthesis
 - ✅ **CLI Tools**: `coredns-ctl`, `coredns-zone`, `coredns-validate`, `coredns-resolve`
 - ✅ **Shell Completion**: Tab completion for all utilities
 - ✅ **Security**: AppArmor profile, unprivileged user execution
@@ -165,7 +166,39 @@ sudo coredns-zone init example.com
 | `proxy_only.example` | Simple DNS proxy |
 | `proxy_zone.example` | Local zone + proxy |
 | `proxy_zone_conditional.example` | Conditional forwarding with health checks |
+| `nat64.example` | NAT64/DNS64 configuration for IPv6 synthesis |
 | `test.example` | Test configuration |
+
+## NAT64 Plugin
+
+The package includes a custom NAT64 plugin that provides DNS64 functionality:
+
+### What it does
+- Blocks IPv4 (A record) queries with NXDOMAIN
+- Synthesizes IPv6 (AAAA) addresses from upstream IPv4 addresses
+- Uses a configurable IPv6 prefix for address synthesis
+
+### Configuration Example
+```corefile
+.:53 {
+    errors
+    log
+    nat64 2a0a:8dc0:509b:21:c34:b2::
+    forward . 8.8.8.8
+    cache 30
+}
+```
+
+### Testing
+```bash
+# Should return synthesized IPv6 address
+dig @localhost AAAA google.com
+
+# Should return NXDOMAIN
+dig @localhost A google.com
+```
+
+See `/etc/coredns/nat64.example` and `nat64/README.md` for detailed documentation.
 
 ## Systemd Service Management
 

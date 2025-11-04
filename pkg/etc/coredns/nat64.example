@@ -1,0 +1,27 @@
+# CoreDNS Corefile with NAT64 plugin example
+# This configuration blocks IPv4 (A) queries and synthesizes
+# IPv6 (AAAA) records from upstream IPv4 addresses
+
+.:53 {
+    # Log errors
+    errors
+
+    # Enable query logging
+    log
+
+    # NAT64 plugin - synthesize AAAA from A records
+    # Default: Uses RFC 6052 Well-Known Prefix 64:ff9b::/96
+    # nat64
+    
+    # Or specify a custom prefix:
+    nat64 64:ff9b::
+
+    # Forward queries to Google DNS
+    forward . 8.8.8.8 8.8.4.4
+
+    # Cache responses for 30 seconds
+    cache 30
+
+    # Reload configuration automatically
+    reload
+}

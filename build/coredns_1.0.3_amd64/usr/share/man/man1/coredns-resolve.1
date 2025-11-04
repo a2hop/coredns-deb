@@ -1,0 +1,117 @@
+.TH coredns-resolve 1 "Oct 2024" "coredns-resolve 1.0" "User Commands"
+.SH NAME
+coredns-resolve \- Manage systemd-resolved integration with CoreDNS
+.SH SYNOPSIS
+.B coredns-resolve
+[\fICOMMAND\fR]
+.SH DESCRIPTION
+.B coredns-resolve
+is a utility for managing the interaction between CoreDNS and systemd-resolved.
+Since both services attempt to use port 53 for DNS, this tool helps configure
+which service should handle DNS requests.
+.SH COMMANDS
+.TP
+.B status
+Display the current status of both CoreDNS and systemd-resolved, including
+which service (if any) is listening on port 53.
+.TP
+.B disable
+Disable systemd-resolved's DNS stub listener to free port 53 for CoreDNS.
+This modifies /etc/systemd/resolved.conf and restarts systemd-resolved.
+Automatically backs up the configuration file before making changes.
+.TP
+.B enable
+Re-enable systemd-resolved's DNS stub listener and return to default DNS
+handling via systemd-resolved. Optionally stops CoreDNS if it's running.
+.TP
+.B check
+Quick check of port 53 to see which service (if any) is currently using it.
+.TP
+.B configure
+Interactive configuration wizard that guides you through the setup process.
+Displays current status and offers menu-based options for configuration.
+.TP
+.B help
+Show help information.
+.SH EXAMPLES
+Check current DNS configuration:
+.PP
+.nf
+  coredns-resolve status
+.fi
+.PP
+Disable systemd-resolved to use CoreDNS:
+.PP
+.nf
+  sudo coredns-resolve disable
+  sudo systemctl start coredns
+.fi
+.PP
+Check what's listening on port 53:
+.PP
+.nf
+  coredns-resolve check
+.fi
+.PP
+Interactive configuration:
+.PP
+.nf
+  sudo coredns-resolve configure
+.fi
+.PP
+Return to systemd-resolved for DNS:
+.PP
+.nf
+  sudo coredns-resolve enable
+.fi
+.SH CONFIGURATION FILES
+.I /etc/systemd/resolved.conf
+.RS
+systemd-resolved configuration file. The tool modifies the DNSStubListener
+setting in this file when enabling or disabling the DNS stub listener.
+Backups are automatically created with timestamps.
+.RE
+.SH RETURN VALUES
+.B 0
+.RS
+Success
+.RE
+.B 1
+.RS
+Error (configuration failed or missing permissions)
+.RE
+.SH NOTES
+.PP
+Both CoreDNS and systemd-resolved cannot listen on port 53 simultaneously.
+This tool helps manage that conflict by:
+.PP
+1. Disabling systemd-resolved's stub listener to free port 53
+2. Starting CoreDNS on port 53
+3. Optionally reverting to systemd-resolved
+.PP
+The tool creates backups of /etc/systemd/resolved.conf before making changes,
+storing them with timestamps for easy recovery.
+.PP
+Root privileges are required for most operations (disable, enable, configure).
+.SH INTEGRATION WITH COREDNS-CTL
+This utility can be invoked through
+.BR coredns-ctl (1)
+using:
+.PP
+.nf
+  sudo coredns-ctl resolve status
+  sudo coredns-ctl resolve disable
+.fi
+.SH SEE ALSO
+.BR coredns (1),
+.BR coredns-ctl (1),
+.BR coredns-zone (1),
+.BR systemctl (1),
+.BR systemd-resolved (8),
+.BR resolved.conf (5)
+.SH AUTHOR
+CoreDNS Debian Package Maintainers
+.SH REPORTING BUGS
+Report bugs at: https://github.com/coredns/coredns/issues
+.SH LICENSE
+Apache License 2.0

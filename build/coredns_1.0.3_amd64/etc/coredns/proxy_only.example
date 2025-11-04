@@ -1,0 +1,14 @@
+# Basic DNS proxy - forwards all requests to upstream servers
+. {
+    # Forward all queries to upstream DNS servers
+    forward . 8.8.8.8 8.8.4.4 1.1.1.1
+    
+    # Enable caching
+    cache 30
+    
+    # Log DNS queries
+    log
+    
+    # Handle errors gracefully
+    errors
+}

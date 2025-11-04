@@ -1,0 +1,18 @@
+# CoreDNS configuration
+# See https://coredns.io/manual/toc/ for documentation
+
+# Default DNS proxy configuration
+# Change this to match your DNS requirements
+. {
+    # Forward all queries to Google DNS
+    forward . 8.8.8.8 8.8.4.4
+
+    # Log all queries (optional)
+    # log
+
+    # Cache results
+    cache 120
+
+    # Reload configuration on SIGHUP
+    reload
+}

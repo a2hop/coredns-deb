@@ -64,29 +64,35 @@ jobs:
           echo "Control file version updated to: ${DEB_VERSION}"
           grep "^Version:" pkg/DEBIAN/control
 
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.21'
+
       - name: Detect latest CoreDNS version
         id: coredns
         run: |
           # Get latest CoreDNS release version
-          COREDNS_VERSION=$(curl -s https://api.github.com/repos/coredns/coredns/releases/latest | grep tag_name | cut -d'"' -f4 | sed 's/^v//')
+          COREDNS_VERSION=$(curl -s https://api.github.com/repos/coredns/coredns/releases/latest | grep tag_name | cut -d'"' -f4)
           echo "version=${COREDNS_VERSION}" >> $GITHUB_OUTPUT
           echo "CoreDNS version: ${COREDNS_VERSION}"
 
-      - name: Download CoreDNS binary
+      - name: Build CoreDNS with NAT64 plugin
         env:
           COREDNS_VERSION: ${{ steps.coredns.outputs.version }}
           ARCH: ${{ matrix.arch }}
         run: |
-          # Map GitHub architecture names to CoreDNS release names
+          # Map GitHub architecture names to Go GOARCH
           case "$ARCH" in
             amd64)
-              RELEASE_ARCH="linux_amd64"
+              GOARCH="amd64"
               ;;
             arm64)
-              RELEASE_ARCH="linux_arm64"
+              GOARCH="arm64"
               ;;
             armv7l)
-              RELEASE_ARCH="linux_arm"
+              GOARCH="arm"
+              GOARM="7"
               ;;
             *)
               echo "Unknown architecture: $ARCH"
@@ -94,24 +100,42 @@ jobs:
               ;;
           esac
 
-          DOWNLOAD_URL="https://github.com/coredns/coredns/releases/download/v${COREDNS_VERSION}/coredns_${COREDNS_VERSION}_${RELEASE_ARCH}.tgz"
-          echo "Downloading from: ${DOWNLOAD_URL}"
+          echo "Building CoreDNS ${COREDNS_VERSION} for ${GOARCH}"
+          
+          # Clone CoreDNS
+          git clone --depth 1 --branch ${COREDNS_VERSION} https://github.com/coredns/coredns.git coredns-build
+          cd coredns-build
 
-          # Download and extract
-          wget -q "${DOWNLOAD_URL}" -O coredns.tgz
-          tar xzf coredns.tgz
-          rm coredns.tgz
+          # Copy NAT64 plugin
+          echo "Adding NAT64 plugin..."
+          mkdir -p plugin/nat64
+          cp ../nat64/*.go plugin/nat64/
 
-          # Verify binary exists
-          if [ ! -f coredns ]; then
-            echo "Failed to download CoreDNS binary"
-            exit 1
+          # Add nat64 to plugin.cfg (before 'forward' plugin for proper ordering)
+          sed -i '/^forward:forward/i nat64:nat64' plugin.cfg
+          
+          # Verify plugin was added
+          echo "=== plugin.cfg ==="
+          grep -A2 -B2 nat64 plugin.cfg || echo "WARNING: nat64 not found in plugin.cfg"
+
+          # Build CoreDNS
+          echo "Building CoreDNS..."
+          go generate
+          
+          if [ "$ARCH" = "armv7l" ]; then
+            CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} GOARM=${GOARM} go build -ldflags="-s -w" -o coredns
+          else
+            CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} go build -ldflags="-s -w" -o coredns
           fi
 
-          # Make binary executable and move to package
+          # Verify the binary and plugin
+          echo "Verifying binary..."
+          file coredns
+          
+          # Copy binary to package structure
           chmod +x coredns
-          cp coredns pkg/usr/local/bin/coredns
-          echo "CoreDNS binary installed successfully"
+          cp coredns ../pkg/usr/local/bin/coredns
+          echo "CoreDNS binary with NAT64 plugin installed successfully"
 
       - name: Set script permissions
         run: |
@@ -212,7 +236,34 @@ jobs:
           tag: v${{ steps.version.outputs.version }}
           name: CoreDNS v${{ steps.version.outputs.version }}
           body: |
-            CoreDNS v${{ steps.coredns.outputs.version }} with Debian Package v${{ steps.version.outputs.version }}
+            CoreDNS ${{ steps.coredns.outputs.version }} with NAT64 Plugin
+            Package version: ${{ steps.version.outputs.version }}
+            
+            ## Features
+            - Custom compiled CoreDNS with NAT64 plugin
+            - Synthesizes AAAA records from A records using NAT64 prefix
+            - Blocks direct A record queries
+            - Supports custom IPv6 prefix configuration
+            
+            ## Installation
+            ```bash
+            wget https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/coredns_${{ steps.version.outputs.version }}_amd64.deb
+            sudo dpkg -i coredns_${{ steps.version.outputs.version }}_amd64.deb
+            ```
+            
+            ## Usage
+            Add to `/etc/coredns/Corefile`:
+            ```
+            .:53 {
+                errors
+                log
+                nat64 2a0a:8dc0:509b:21:c34:b2::
+                forward . 8.8.8.8
+                cache 30
+            }
+            ```
+            
+            See `/etc/coredns/nat64.example` for more configuration examples.
           artifacts: release/coredns_*.deb,release/SHA256SUMS
           draft: false
           prerelease: false

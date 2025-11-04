@@ -1,0 +1,129 @@
+CoreDNS Installation Guide
+==========================
+
+Installation
+------------
+sudo dpkg -i coredns_*.deb
+
+Configuration
+--------------
+Edit the CoreDNS configuration file at:
+  /etc/coredns/Corefile
+
+Example configurations are provided:
+  /etc/coredns/proxy_only.example          - Simple DNS proxy
+  /etc/coredns/proxy_zone.example          - Local zone with proxy
+  /etc/coredns/proxy_zone_conditional.example - Conditional forwarding
+
+To use an example configuration:
+  sudo cp /etc/coredns/proxy_only.example /etc/coredns/Corefile
+  sudo systemctl restart coredns
+
+Service Management
+------------------
+Start the service:
+  sudo systemctl start coredns
+
+Enable at boot:
+  sudo systemctl enable coredns
+
+Stop the service:
+  sudo systemctl stop coredns
+
+Check status:
+  sudo systemctl status coredns
+
+View logs:
+  sudo journalctl -u coredns -f
+
+Reload configuration:
+  sudo systemctl reload coredns
+
+Zone Management
+---------------
+Create a new zone file:
+  sudo coredns-zone init example.local
+
+Show zone file:
+  sudo coredns-zone show example.local
+
+Increment zone serial number:
+  sudo coredns-zone bump example.local
+
+List all zones:
+  sudo coredns-zone list
+
+Manage systemd-resolved Integration
+------------------------------------
+Check DNS configuration status:
+  coredns-resolve status
+
+Disable systemd-resolved DNS stub listener (use CoreDNS):
+  sudo coredns-resolve disable
+  sudo systemctl start coredns
+
+Enable systemd-resolved DNS stub listener (use systemd-resolved):
+  sudo coredns-resolve enable
+
+Interactive configuration wizard:
+  sudo coredns-resolve configure
+
+Check what service is listening on port 53:
+  coredns-resolve check
+
+Validate Configuration
+----------------------
+Check Corefile syntax:
+  coredns-validate /etc/coredns/Corefile
+
+Port 53 Conflict Resolution
+----------------------------
+If you get an error about port 53 already being in use, you may need to
+disable systemd-resolved's DNS stub listener:
+
+Easy way (automated):
+  sudo coredns-resolve disable
+  sudo systemctl start coredns
+
+Check what's using port 53:
+  coredns-resolve check
+  sudo ss -tulpn | grep :53
+
+Manual way:
+  sudo sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
+  sudo systemctl restart systemd-resolved
+  sudo systemctl start coredns
+
+To revert to systemd-resolved for DNS:
+  sudo coredns-resolve enable
+
+For more help:
+  man coredns-resolve
+
+Troubleshooting
+---------------
+Check if CoreDNS is running:
+  sudo systemctl status coredns
+
+View recent logs:
+  sudo journalctl -u coredns -n 50
+
+Check for errors in configuration:
+  coredns-validate /etc/coredns/Corefile
+
+Ensure CoreDNS user exists:
+  id coredns
+
+Set correct permissions:
+  sudo chown -R coredns:coredns /etc/coredns
+  sudo chmod 755 /etc/coredns
+
+Uninstallation
+--------------
+Remove without purging configuration:
+  sudo apt remove coredns
+
+Remove with configuration (complete purge):
+  sudo apt purge coredns
+
+For more information, visit: https://coredns.io
