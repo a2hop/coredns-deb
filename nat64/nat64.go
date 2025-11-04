@@ -56,22 +56,39 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		m.RecursionAvailable = aResp.RecursionAvailable
 		m.Rcode = aResp.Rcode
 
-		// Copy NS and Extra sections
-		m.Ns = aResp.Ns
-		m.Extra = aResp.Extra
+		// Copy NS section, but filter out DNSSEC records
+		for _, ns := range aResp.Ns {
+			if !isDNSSECRecord(ns) {
+				m.Ns = append(m.Ns, ns)
+			}
+		}
 
+		// Copy Extra section, but filter out DNSSEC records
+		for _, extra := range aResp.Extra {
+			if !isDNSSECRecord(extra) {
+				m.Extra = append(m.Extra, extra)
+			}
+		}
+
+		// Synthesize AAAA records from A records
+		// Also preserve CNAME records in the chain
 		for _, ans := range aResp.Answer {
-			if a, ok := ans.(*dns.A); ok {
+			switch rr := ans.(type) {
+			case *dns.A:
+				// Convert A to AAAA
 				aaaa := &dns.AAAA{
 					Hdr: dns.RR_Header{
-						Name:   a.Hdr.Name,
+						Name:   rr.Hdr.Name,
 						Rrtype: dns.TypeAAAA,
 						Class:  dns.ClassINET,
-						Ttl:    a.Hdr.Ttl,
+						Ttl:    rr.Hdr.Ttl,
 					},
-					AAAA: n.synthesizeIPv6(a.A),
+					AAAA: n.synthesizeIPv6(rr.A),
 				}
 				m.Answer = append(m.Answer, aaaa)
+			case *dns.CNAME:
+				// Preserve CNAME records
+				m.Answer = append(m.Answer, rr)
 			}
 		}
 
@@ -97,6 +114,15 @@ func (n NAT64) synthesizeIPv6(ipv4 net.IP) net.IP {
 	copy(ipv6[12:], ipv4.To4())
 
 	return ipv6
+}
+
+// isDNSSECRecord checks if a DNS record is a DNSSEC-related record
+func isDNSSECRecord(rr dns.RR) bool {
+	switch rr.Header().Rrtype {
+	case dns.TypeRRSIG, dns.TypeNSEC, dns.TypeNSEC3, dns.TypeDS, dns.TypeDNSKEY:
+		return true
+	}
+	return false
 }
 
 func (n NAT64) Name() string { return "nat64" }
