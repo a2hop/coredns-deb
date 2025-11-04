@@ -32,14 +32,33 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		aReq.Question[0].Qtype = dns.TypeA
 
 		// Query upstream for A record
-		aResp := &dns.Msg{}
-		rec := &ResponseWriter{ResponseWriter: w, msg: aResp}
+		rec := &ResponseWriter{ResponseWriter: w}
 
-		n.Next.ServeDNS(ctx, rec, aReq)
+		rcode, err := n.Next.ServeDNS(ctx, rec, aReq)
+		if err != nil {
+			return rcode, err
+		}
+
+		// Get the A record response
+		aResp := rec.msg
+		if aResp == nil {
+			// No response received, return empty AAAA response
+			m := new(dns.Msg)
+			m.SetReply(r)
+			w.WriteMsg(m)
+			return dns.RcodeSuccess, nil
+		}
 
 		// Synthesize AAAA from A
 		m := new(dns.Msg)
 		m.SetReply(r)
+		m.Authoritative = aResp.Authoritative
+		m.RecursionAvailable = aResp.RecursionAvailable
+		m.Rcode = aResp.Rcode
+
+		// Copy NS and Extra sections
+		m.Ns = aResp.Ns
+		m.Extra = aResp.Extra
 
 		for _, ans := range aResp.Answer {
 			if a, ok := ans.(*dns.A); ok {
@@ -88,6 +107,7 @@ type ResponseWriter struct {
 }
 
 func (r *ResponseWriter) WriteMsg(m *dns.Msg) error {
-	r.msg = m
+	// Deep copy the message to preserve it
+	r.msg = m.Copy()
 	return nil
 }
