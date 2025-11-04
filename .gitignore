@@ -1,1 +1,21 @@
+# Build artifacts
 build/
+*.deb
+
+# Go build artifacts
+*.o
+*.a
+*.so
+
+# Temporary files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Editor directories
+.vscode/
+.idea/
+
+# Go module cache
+go.sum
