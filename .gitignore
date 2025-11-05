@@ -2,6 +2,10 @@
 build/
 *.deb
 
+# CoreDNS binary (generated during build)
+pkg/usr/local/bin/coredns
+build/coredns-build/coredns
+
 # Go build artifacts
 *.o
 *.a
