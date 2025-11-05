@@ -48,16 +48,43 @@ chmod 755 /etc/coredns
 chmod 755 /etc/coredns/zone
 echo "✓ Configuration directory ready"
 
-# Ensure Corefile has correct ownership and permissions
-# (File is installed by dpkg and managed via conffiles)
+# Create Corefile only on fresh install (not on upgrade)
+# This file is NOT managed by dpkg conffiles to avoid upgrade prompts
+if [ "$IS_UPGRADE" = false ] && [ ! -f /etc/coredns/Corefile ]; then
+    if [ -f /etc/coredns/Corefile.default ]; then
+        # Use the default template provided by the package
+        cp /etc/coredns/Corefile.default /etc/coredns/Corefile
+    else
+        # Fallback: create a minimal default Corefile
+        cat > /etc/coredns/Corefile << 'EOF'
+# CoreDNS configuration
+# See https://coredns.io/manual/toc/ for documentation
+
+# Default DNS proxy configuration
+# Change this to match your DNS requirements
+. {
+    # Forward all queries to Google DNS
+    forward . 8.8.8.8 8.8.4.4
+
+    # Cache results
+    cache 120
+
+    # Reload configuration on SIGHUP
+    reload
+}
+EOF
+    fi
+    chown coredns:coredns /etc/coredns/Corefile
+    chmod 644 /etc/coredns/Corefile
+    echo "✓ Default Corefile created"
+elif [ "$IS_UPGRADE" = true ]; then
+    echo "✓ Existing Corefile preserved (no changes made)"
+fi
+
+# Ensure proper permissions on Corefile if it exists
 if [ -f /etc/coredns/Corefile ]; then
     chown coredns:coredns /etc/coredns/Corefile
     chmod 644 /etc/coredns/Corefile
-    if [ "$IS_UPGRADE" = false ]; then
-        echo "✓ Default Corefile installed"
-    else
-        echo "✓ Corefile preserved (user configuration maintained)"
-    fi
 fi
 
 # Install systemd service

@@ -1,5 +1,5 @@
 Package: ut--coredns
-Version: 1.0.3
+Version: 1.0.7
 Architecture: amd64
 Maintainer: CoreDNS Package Maintainer <maintainer@example.com>
 Homepage: https://coredns.io

@@ -76,7 +76,7 @@ chmod 755 ${BUILD_DIR}/${PKG_NAME}/DEBIAN/postinst
 chmod 755 ${BUILD_DIR}/${PKG_NAME}/DEBIAN/prerm
 chmod 755 ${BUILD_DIR}/${PKG_NAME}/DEBIAN/postrm
 chmod 644 ${BUILD_DIR}/${PKG_NAME}/DEBIAN/control
-chmod 644 ${BUILD_DIR}/${PKG_NAME}/DEBIAN/conffiles
+# Note: conffiles is no longer used - Corefile is created by postinst only
 
 dpkg-deb --build ${BUILD_DIR}/${PKG_NAME}
 
