@@ -183,7 +183,7 @@ The package includes a custom NAT64 plugin that provides DNS64 functionality:
 .:53 {
     errors
     log
-    nat64 2a0a:8dc0:509b:21:c34:b2::
+    nat64 64:ff9b::
     forward . 8.8.8.8
     cache 30
 }

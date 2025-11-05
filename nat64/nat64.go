@@ -40,7 +40,6 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 
 		rcode, err := n.Next.ServeDNS(ctx, rec, aReq)
 		if err != nil {
-			log.Errorf("[NAT64] Error querying upstream for A record: %v", err)
 			return rcode, err
 		}
 
@@ -48,18 +47,10 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		aResp := rec.msg
 		if aResp == nil {
 			// No response received, return empty AAAA response
-			log.Warningf("[NAT64] No A record response received for %s", state.QName())
 			m := new(dns.Msg)
 			m.SetReply(r)
 			w.WriteMsg(m)
 			return dns.RcodeSuccess, nil
-		}
-
-		log.Infof("[NAT64] Received A record response for %s with %d answers", state.QName(), len(aResp.Answer))
-
-		// Log all answers from A query
-		for i, ans := range aResp.Answer {
-			log.Debugf("[NAT64]   Answer[%d]: %s", i, ans.String())
 		}
 
 		// Synthesize AAAA from A
@@ -91,9 +82,6 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 			switch rr := ans.(type) {
 			case *dns.A:
 				// Convert A to AAAA
-				synthesized := n.synthesizeIPv6(rr.A)
-				log.Infof("[NAT64] Synthesizing: %s A %s -> AAAA %s", rr.Hdr.Name, rr.A, synthesized)
-
 				aaaa := &dns.AAAA{
 					Hdr: dns.RR_Header{
 						Name:   rr.Hdr.Name,
@@ -101,33 +89,27 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 						Class:  dns.ClassINET,
 						Ttl:    rr.Hdr.Ttl,
 					},
-					AAAA: synthesized,
+					AAAA: n.synthesizeIPv6(rr.A),
 				}
 				m.Answer = append(m.Answer, aaaa)
 				hasAnswers = true
 			case *dns.CNAME:
 				// Preserve CNAME records
-				log.Infof("[NAT64] Preserving CNAME: %s -> %s", rr.Hdr.Name, rr.Target)
 				m.Answer = append(m.Answer, rr)
 				hasAnswers = true
 			case *dns.AAAA:
 				// IMPORTANT: Never include real AAAA records in NAT64 responses
 				// This would bypass NAT64 and break IPv6-only networks
-				log.Warningf("[NAT64] Skipping real AAAA record in A response: %s", rr.String())
 				continue
 			default:
 				// For any other record types in the answer, skip them
-				log.Debugf("[NAT64] Skipping non-A/CNAME record: %s", ans.Header().String())
 				continue
 			}
 		}
 
 		// If no valid answers were synthesized, return NXDOMAIN or empty response
 		if !hasAnswers {
-			log.Warningf("[NAT64] No valid answers synthesized for %s, rcode=%d", state.QName(), aResp.Rcode)
 			m.Rcode = aResp.Rcode
-		} else {
-			log.Infof("[NAT64] Synthesized %d answer(s) for %s", len(m.Answer), state.QName())
 		}
 
 		w.WriteMsg(m)
