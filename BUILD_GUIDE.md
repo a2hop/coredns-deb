@@ -1,11 +1,19 @@
-# CoreDNS with NAT64 Plugin - Build Guide
+# CoreDNS with NAT64 and NAT664 Plugins - Build Guide
 
 ## Overview
 
-This package builds CoreDNS from source with a custom NAT64 plugin that:
+This package builds CoreDNS from source with two custom plugins:
+
+### NAT64 Plugin (Standard DNS64 - RFC 6147)
+- Passes through IPv4 (A) queries normally
+- Returns native AAAA records when they exist
+- Only synthesizes IPv6 (AAAA) from IPv4 when no native AAAA exists
+- Standard compliant DNS64 behavior
+
+### NAT664 Plugin (Aggressive IPv6-only)
 - Blocks IPv4 (A) record queries
-- Synthesizes IPv6 (AAAA) records from IPv4 addresses using a configurable NAT64 prefix
-- Passes through all other query types
+- Always synthesizes IPv6 (AAAA) records from IPv4 addresses, even when native AAAA exists
+- Forces IPv6-only operation
 
 ## Building the Package
 
@@ -23,8 +31,8 @@ sudo apt install -y golang-go git dpkg-dev
 
 This will:
 1. Clone CoreDNS source (v1.11.1)
-2. Integrate the nat64 plugin
-3. Build the CoreDNS binary with the plugin compiled in
+2. Integrate the nat64 and nat664 plugins
+3. Build the CoreDNS binary with both plugins compiled in
 4. Create a Debian package: `build/coredns_1.0.3_amd64.deb`
 
 ### Build with Custom Version
@@ -59,18 +67,18 @@ sudo dpkg -i build/coredns_1.0.3_amd64.deb
 
 ## Verifying the Installation
 
-Check that nat64 plugin is available:
+Check that nat664 plugin is available:
 
 ```bash
-coredns -plugins | grep nat64
+coredns -plugins | grep nat664
 ```
 
 Should output:
 ```
-  dns.nat64
+  dns.nat664
 ```
 
-## Using the NAT64 Plugin
+## Using the NAT664 Plugin
 
 ### Basic Configuration
 
@@ -80,7 +88,7 @@ Edit `/etc/coredns/Corefile`:
 .:53 {
     errors
     log
-    nat64 64:ff9b::
+    nat664 64:ff9b::
     forward . 8.8.8.8
     cache 30
 }
@@ -90,7 +98,7 @@ The default prefix is `64:ff9b::` (RFC 6052 Well-Known Prefix). You can specify 
 
 ### Advanced Configuration
 
-See `/etc/coredns/nat64.example` for a complete example.
+See `/etc/coredns/nat664.example` for a complete example.
 
 ### Starting CoreDNS
 
@@ -116,8 +124,8 @@ dig @127.0.0.1 google.com AAAA
 
 ## Plugin Details
 
-The NAT64 plugin is located in `nat64/` directory:
-- `nat64.go`: Main plugin logic
+The NAT664 plugin is located in `nat664/` directory:
+- `nat664.go`: Main plugin logic
 - `setup.go`: Plugin registration and configuration
 - `README.md`: Plugin documentation
 
@@ -142,7 +150,7 @@ source ./set-proxy.sh http://your-proxy:port
 
 Verify the binary was built correctly:
 ```bash
-pkg/usr/local/bin/coredns -plugins | grep nat64
+pkg/usr/local/bin/coredns -plugins | grep nat664
 ```
 
 ### Permission errors during build
@@ -155,8 +163,8 @@ chmod 644 pkg/DEBIAN/control
 
 ## Development
 
-To modify the NAT64 plugin:
-1. Edit files in `nat64/` directory
+To modify the NAT664 plugin:
+1. Edit files in `nat664/` directory
 2. Run `./build.sh` to rebuild
 3. Test the new package
 

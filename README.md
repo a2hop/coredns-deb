@@ -29,7 +29,8 @@ dig @127.0.0.1
 
 - ✅ **Intelligent Upgrades**: Only restarts if service was running before upgrade
 - ✅ **systemd-resolved Integration**: One-command to resolve port 53 conflicts
-- ✅ **NAT64 Plugin**: Custom plugin for DNS64/NAT64 IPv6 synthesis
+- ✅ **NAT64 Plugin**: Standard RFC 6147 DNS64 implementation
+- ✅ **NAT664 Plugin**: Aggressive IPv6-only DNS64 variant
 - ✅ **CLI Tools**: `coredns-ctl`, `coredns-zone`, `coredns-validate`, `coredns-resolve`
 - ✅ **Shell Completion**: Tab completion for all utilities
 - ✅ **Security**: AppArmor profile, unprivileged user execution
@@ -166,19 +167,22 @@ sudo coredns-zone init example.com
 | `proxy_only.example` | Simple DNS proxy |
 | `proxy_zone.example` | Local zone + proxy |
 | `proxy_zone_conditional.example` | Conditional forwarding with health checks |
-| `nat64.example` | NAT64/DNS64 configuration for IPv6 synthesis |
+| `nat64.example` | Standard RFC 6147 DNS64 configuration |
+| `nat664.example` | Aggressive IPv6-only DNS64 configuration |
 | `test.example` | Test configuration |
 
-## NAT64 Plugin
+## DNS64 Plugins
 
-The package includes a custom NAT64 plugin that provides DNS64 functionality:
+The package includes two DNS64 plugins with different behaviors:
 
-### What it does
-- Blocks IPv4 (A record) queries with NXDOMAIN
-- Synthesizes IPv6 (AAAA) addresses from upstream IPv4 addresses
-- Uses a configurable IPv6 prefix for address synthesis
+### NAT64 Plugin (Standard RFC 6147)
+- **Standard compliant DNS64 behavior**
+- Passes through A queries normally
+- Returns native AAAA records when they exist
+- Only synthesizes AAAA from A records when no native AAAA exists
+- Ideal for dual-stack networks
 
-### Configuration Example
+**Configuration Example:**
 ```corefile
 .:53 {
     errors
@@ -189,16 +193,40 @@ The package includes a custom NAT64 plugin that provides DNS64 functionality:
 }
 ```
 
+### NAT664 Plugin (Aggressive IPv6-only)
+- **Forces IPv6-only operation**
+- Blocks IPv4 (A record) queries with NXDOMAIN
+- Always synthesizes AAAA addresses, even when native AAAA exists
+- Uses a configurable IPv6 prefix for address synthesis
+- Ideal for IPv6-only networks
+
+**Configuration Example:**
+```corefile
+.:53 {
+    errors
+    log
+    nat664 64:ff9b::
+    forward . 8.8.8.8
+    cache 30
+}
+```
+
 ### Testing
 ```bash
-# Should return synthesized IPv6 address
+# NAT64 (standard): Should return native AAAA if exists, or synthesize from A
 dig @localhost AAAA google.com
 
-# Should return NXDOMAIN
+# NAT64 (standard): Should return A records normally
+dig @localhost A google.com
+
+# NAT664 (aggressive): Should return synthesized AAAA
+dig @localhost AAAA google.com
+
+# NAT664 (aggressive): Should return NXDOMAIN
 dig @localhost A google.com
 ```
 
-See `/etc/coredns/nat64.example` and `nat64/README.md` for detailed documentation.
+See `/etc/coredns/nat64.example`, `/etc/coredns/nat664.example`, and the respective README files (`nat64/README.md`, `nat664/README.md`) for detailed documentation.
 
 ## Systemd Service Management
 

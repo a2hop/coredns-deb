@@ -1,4 +1,4 @@
-package nat64
+package nat664
 
 import (
 	"github.com/coredns/caddy"
@@ -6,17 +6,15 @@ import (
 	"github.com/coredns/coredns/plugin"
 )
 
-func init() { plugin.Register("nat64", setup) }
+func init() { plugin.Register("nat664", setup) }
 
 func setup(c *caddy.Controller) error {
-	n := NAT64{
-		Prefix: "64:ff9b::", // RFC 6052 Well-Known Prefix
-	}
+	// Use RFC 6052 Well-Known Prefix as default
+	n := NAT664{Prefix: "64:ff9b::"}
 
 	for c.Next() {
-		args := c.RemainingArgs()
-		if len(args) > 0 {
-			n.Prefix = args[0]
+		if c.NextArg() {
+			n.Prefix = c.Val()
 		}
 	}
 

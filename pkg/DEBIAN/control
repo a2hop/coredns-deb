@@ -10,3 +10,7 @@ Description: DNS server with a focus on service discovery
  function. CoreDNS can be used in many different environments because of its
  flexibility. It can serve as a zone file DNS server, an SRV record resolver,
  a reverse proxy to upstream DNS servers, and more.
+ .
+ This build includes two custom DNS64 plugins:
+ - nat64: Standard RFC 6147 DNS64 implementation
+ - nat664: Aggressive IPv6-only DNS64 variant

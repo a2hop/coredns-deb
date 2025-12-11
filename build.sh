@@ -1,10 +1,10 @@
 #!/bin/bash
 set -e
 
-# Build script for CoreDNS Debian package with NAT64 plugin
+# Build script for CoreDNS Debian package with NAT64 and NAT664 plugins
 # This script:
 # 1. Clones CoreDNS source
-# 2. Integrates the nat64 plugin
+# 2. Integrates the nat64 and nat664 plugins
 # 3. Builds CoreDNS binary
 # 4. Creates the Debian package
 
@@ -13,7 +13,7 @@ COREDNS_VERSION=${2:-"v1.11.1"}
 BUILD_DIR="build"
 TEMP_DIR="${BUILD_DIR}/coredns-build"
 
-echo "Building CoreDNS ${COREDNS_VERSION} with NAT64 plugin..."
+echo "Building CoreDNS ${COREDNS_VERSION} with NAT64 and NAT664 plugins..."
 echo "Package version: ${VERSION}"
 
 # Set Go environment with China-friendly proxies
@@ -37,14 +37,20 @@ GIT_URL="https://github.com/coredns/coredns.git"
 git clone --depth 1 --branch ${COREDNS_VERSION} ${GIT_URL} ${TEMP_DIR}
 cd ${TEMP_DIR}
 
-# Copy NAT64 plugin
+# Copy NAT64 plugin (standard DNS64)
 echo "Adding NAT64 plugin..."
 mkdir -p plugin/nat64
 cp ../../nat64/*.go plugin/nat64/
 
-# Add nat64 to plugin.cfg (before 'forward' plugin for proper ordering)
-echo "Configuring plugin..."
+# Copy NAT664 plugin (aggressive IPv6-only)
+echo "Adding NAT664 plugin..."
+mkdir -p plugin/nat664
+cp ../../nat664/*.go plugin/nat664/
+
+# Add both plugins to plugin.cfg (before 'forward' plugin for proper ordering)
+echo "Configuring plugins..."
 sed -i '/^forward:forward/i nat64:nat64' plugin.cfg
+sed -i '/^forward:forward/i nat664:nat664' plugin.cfg
 
 # Build CoreDNS
 echo "Building CoreDNS..."
@@ -54,6 +60,7 @@ CGO_ENABLED=0 go build -ldflags="-s -w" -o coredns
 # Verify the binary
 echo "Verifying binary..."
 ./coredns -plugins | grep nat64 || (echo "ERROR: nat64 plugin not found in binary!" && exit 1)
+./coredns -plugins | grep nat664 || (echo "ERROR: nat664 plugin not found in binary!" && exit 1)
 
 # Copy binary to package structure
 echo "Preparing package..."
@@ -87,4 +94,4 @@ ls -lh ${BUILD_DIR}/${PKG_NAME}.deb
 # Show plugin list
 echo ""
 echo "Installed plugins:"
-pkg/usr/local/bin/coredns -plugins | grep -E "^(dns|nat64|forward|cache|errors|log)"
+pkg/usr/local/bin/coredns -plugins | grep -E "^(dns|nat64|nat664|forward|cache|errors|log)"

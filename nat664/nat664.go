@@ -1,4 +1,4 @@
-package nat64
+package nat664
 
 import (
 	"context"
@@ -10,68 +10,46 @@ import (
 	"github.com/miekg/dns"
 )
 
-type NAT64 struct {
+type NAT664 struct {
 	Next   plugin.Handler
-	Prefix string // NAT64 prefix, default: "64:ff9b::" (RFC 6052 Well-Known Prefix)
+	Prefix string // NAT664 prefix, default: "64:ff9b::" (RFC 6052 Well-Known Prefix)
 }
 
-func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
+func (n NAT664) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (int, error) {
 	state := request.Request{W: w, Req: r}
 
-	// Pass through A queries unchanged (standard DNS64 behavior)
+	// Block A queries
 	if state.QType() == dns.TypeA {
-		return plugin.NextOrFailure(n.Name(), n.Next, ctx, w, r)
+		log.Infof("[NAT664] Blocking A query for %s", state.QName())
+		m := new(dns.Msg)
+		m.SetRcode(r, dns.RcodeNameError)
+		w.WriteMsg(m)
+		return dns.RcodeNameError, nil
 	}
 
-	// For AAAA queries, synthesize from A records only if no native AAAA exists
+	// For AAAA queries, synthesize from A records
 	if state.QType() == dns.TypeAAAA {
-		log.Debugf("[NAT64] Processing AAAA query for %s", state.QName())
-
-		// First, check if native AAAA records exist
-		rec := &ResponseWriter{ResponseWriter: w}
-		rcode, err := n.Next.ServeDNS(ctx, rec, r)
-		if err != nil {
-			return rcode, err
-		}
-
-		// Get the AAAA response
-		aaaaResp := rec.msg
-		if aaaaResp == nil {
-			// No response received, pass through
-			return plugin.NextOrFailure(n.Name(), n.Next, ctx, w, r)
-		}
-
-		// Check if native AAAA records exist
-		if len(aaaaResp.Answer) > 0 {
-			for _, rr := range aaaaResp.Answer {
-				if rr.Header().Rrtype == dns.TypeAAAA {
-					// Native AAAA exists, don't synthesize - return as-is
-					log.Debugf("[NAT64] Native AAAA exists for %s, passing through", state.QName())
-					w.WriteMsg(aaaaResp)
-					return dns.RcodeSuccess, nil
-				}
-			}
-		}
-
-		// No native AAAA found, try to synthesize from A records
-		log.Infof("[NAT64] No native AAAA for %s, synthesizing from A", state.QName())
+		log.Infof("[NAT664] Processing AAAA query for %s", state.QName())
 
 		// Create A query
 		aReq := r.Copy()
 		aReq.Question[0].Qtype = dns.TypeA
 
 		// Query upstream for A record
-		aRec := &ResponseWriter{ResponseWriter: w}
-		rcode, err = n.Next.ServeDNS(ctx, aRec, aReq)
+		rec := &ResponseWriter{ResponseWriter: w}
+
+		rcode, err := n.Next.ServeDNS(ctx, rec, aReq)
 		if err != nil {
 			return rcode, err
 		}
 
 		// Get the A record response
-		aResp := aRec.msg
+		aResp := rec.msg
 		if aResp == nil {
-			// No A response either, return the original empty AAAA response
-			w.WriteMsg(aaaaResp)
+			// No response received, return empty AAAA response
+			m := new(dns.Msg)
+			m.SetReply(r)
+			w.WriteMsg(m)
 			return dns.RcodeSuccess, nil
 		}
 
@@ -90,6 +68,7 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 		}
 
 		// Copy Extra section, but filter out DNSSEC records
+		// Note: We do NOT filter AAAA records here as they may be needed for glue records
 		for _, extra := range aResp.Extra {
 			if !isDNSSECRecord(extra) {
 				m.Extra = append(m.Extra, extra)
@@ -114,18 +93,21 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 				}
 				m.Answer = append(m.Answer, aaaa)
 				hasAnswers = true
-				log.Infof("[NAT64] Synthesized AAAA %s -> %s", rr.A, aaaa.AAAA)
 			case *dns.CNAME:
 				// Preserve CNAME records
 				m.Answer = append(m.Answer, rr)
 				hasAnswers = true
+			case *dns.AAAA:
+				// IMPORTANT: Never include real AAAA records in NAT664 responses
+				// This would bypass NAT664 and break IPv6-only networks
+				continue
 			default:
 				// For any other record types in the answer, skip them
 				continue
 			}
 		}
 
-		// If no valid answers were synthesized, return original response
+		// If no valid answers were synthesized, return NXDOMAIN or empty response
 		if !hasAnswers {
 			m.Rcode = aResp.Rcode
 		}
@@ -138,7 +120,7 @@ func (n NAT64) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.Msg) (
 	return plugin.NextOrFailure(n.Name(), n.Next, ctx, w, r)
 }
 
-func (n NAT64) synthesizeIPv6(ipv4 net.IP) net.IP {
+func (n NAT664) synthesizeIPv6(ipv4 net.IP) net.IP {
 	// RFC 6052 Well-Known Prefix: 64:ff9b::/96
 	// Prefix: 64:ff9b:: (96 bits)
 	// IPv4: a.b.c.d (32 bits)
@@ -146,7 +128,7 @@ func (n NAT64) synthesizeIPv6(ipv4 net.IP) net.IP {
 
 	prefix := net.ParseIP(n.Prefix)
 	if prefix == nil {
-		log.Errorf("[NAT64] Failed to parse prefix '%s', using default 64:ff9b::", n.Prefix)
+		log.Errorf("[NAT664] Failed to parse prefix '%s', using default 64:ff9b::", n.Prefix)
 		prefix = net.ParseIP("64:ff9b::")
 	}
 
@@ -156,13 +138,13 @@ func (n NAT64) synthesizeIPv6(ipv4 net.IP) net.IP {
 	// Embed IPv4 in last 32 bits
 	ipv4Bytes := ipv4.To4()
 	if ipv4Bytes == nil {
-		log.Errorf("[NAT64] Invalid IPv4 address: %s", ipv4)
+		log.Errorf("[NAT664] Invalid IPv4 address: %s", ipv4)
 		// If ipv4 is already IPv6 or invalid, return as-is
 		return ipv4
 	}
 	copy(ipv6[12:], ipv4Bytes)
 
-	log.Debugf("[NAT64] Prefix=%s + IPv4=%s = IPv6=%s", n.Prefix, ipv4, ipv6)
+	log.Debugf("[NAT664] Prefix=%s + IPv4=%s = IPv6=%s", n.Prefix, ipv4, ipv6)
 
 	return ipv6
 }
@@ -176,7 +158,7 @@ func isDNSSECRecord(rr dns.RR) bool {
 	return false
 }
 
-func (n NAT64) Name() string { return "nat64" }
+func (n NAT664) Name() string { return "NAT664" }
 
 type ResponseWriter struct {
 	dns.ResponseWriter

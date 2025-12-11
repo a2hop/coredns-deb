@@ -1,27 +1,52 @@
-# CoreDNS Corefile with NAT64 plugin example
-# This configuration blocks IPv4 (A) queries and synthesizes
-# IPv6 (AAAA) records from upstream IPv4 addresses
+# Standard NAT64/DNS64 Configuration (RFC 6147)
+# This is the standard DNS64 behavior - only synthesizes when no native AAAA exists
+#
+# Use this for:
+# - Dual-stack networks with DNS64 support
+# - Standard RFC-compliant DNS64 operation
+# - Networks where native IPv6 should be preferred
+#
+# Behavior:
+# - A queries: Passed through normally
+# - AAAA queries with native AAAA: Returns native AAAA unchanged
+# - AAAA queries without native AAAA: Synthesizes from A records
+#
+# For aggressive IPv6-only forcing, see nat664.example instead
 
 .:53 {
-    # Log errors
+    # Error logging
     errors
 
-    # Enable query logging
+    # Query logging (optional, can be verbose)
     log
 
-    # NAT64 plugin - synthesize AAAA from A records
-    # Default: Uses RFC 6052 Well-Known Prefix 64:ff9b::/96
-    # nat64
-    
-    # Or specify a custom prefix:
-    nat64 64:ff9b::
+    # Standard NAT64/DNS64 with default RFC 6052 prefix (64:ff9b::/96)
+    nat64
 
-    # Forward queries to Google DNS
+    # Forward to upstream DNS
     forward . 8.8.8.8 8.8.4.4
 
-    # Cache responses for 30 seconds
+    # Cache responses
     cache 30
-
-    # Reload configuration automatically
-    reload
 }
+
+# Example with custom NAT64 prefix:
+#
+# .:53 {
+#     errors
+#     log
+#     nat64 2001:db8:64::
+#     forward . 8.8.8.8
+#     cache 30
+# }
+
+# Example for specific zones only:
+#
+# ipv4-only.example.com {
+#     nat64
+#     forward . 192.168.1.1
+# }
+#
+# . {
+#     forward . 8.8.8.8
+# }

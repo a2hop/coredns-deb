@@ -77,7 +77,7 @@ jobs:
           echo "version=${COREDNS_VERSION}" >> $GITHUB_OUTPUT
           echo "CoreDNS version: ${COREDNS_VERSION}"
 
-      - name: Build CoreDNS with NAT64 plugin
+      - name: Build CoreDNS with NAT64 and NAT664 plugins
         env:
           COREDNS_VERSION: ${{ steps.coredns.outputs.version }}
           ARCH: ${{ matrix.arch }}
@@ -106,17 +106,24 @@ jobs:
           git clone --depth 1 --branch ${COREDNS_VERSION} https://github.com/coredns/coredns.git coredns-build
           cd coredns-build
 
-          # Copy NAT64 plugin
+          # Copy NAT64 plugin (standard DNS64)
           echo "Adding NAT64 plugin..."
           mkdir -p plugin/nat64
           cp ../nat64/*.go plugin/nat64/
 
-          # Add nat64 to plugin.cfg (before 'forward' plugin for proper ordering)
+          # Copy NAT664 plugin (aggressive IPv6-only)
+          echo "Adding NAT664 plugin..."
+          mkdir -p plugin/nat664
+          cp ../nat664/*.go plugin/nat664/
+
+          # Add both plugins to plugin.cfg (before 'forward' plugin for proper ordering)
           sed -i '/^forward:forward/i nat64:nat64' plugin.cfg
+          sed -i '/^forward:forward/i nat664:nat664' plugin.cfg
           
-          # Verify plugin was added
+          # Verify plugins were added
           echo "=== plugin.cfg ==="
           grep -A2 -B2 nat64 plugin.cfg || echo "WARNING: nat64 not found in plugin.cfg"
+          grep -A2 -B2 nat664 plugin.cfg || echo "WARNING: nat664 not found in plugin.cfg"
 
           # Build CoreDNS
           echo "Building CoreDNS..."
@@ -128,14 +135,14 @@ jobs:
             CGO_ENABLED=0 GOOS=linux GOARCH=${GOARCH} go build -ldflags="-s -w" -o coredns
           fi
 
-          # Verify the binary and plugin
+          # Verify the binary and plugins
           echo "Verifying binary..."
           file coredns
           
           # Copy binary to package structure
           chmod +x coredns
           cp coredns ../pkg/usr/local/bin/coredns
-          echo "CoreDNS binary with NAT64 plugin installed successfully"
+          echo "CoreDNS binary with NAT64 and NAT664 plugins installed successfully"
 
       - name: Set script permissions
         run: |
@@ -236,7 +243,7 @@ jobs:
           tag: v${{ steps.version.outputs.version }}
           name: CoreDNS v${{ steps.version.outputs.version }}
           body: |
-            CoreDNS ${{ steps.coredns.outputs.version }} with NAT64 Plugin
+            CoreDNS ${{ steps.coredns.outputs.version }} with NAT664 Plugin
             Package version: ${{ steps.version.outputs.version }}
             
             See [README.md](https://github.com/${{ github.repository }}/blob/main/README.md) for installation and usage instructions.
